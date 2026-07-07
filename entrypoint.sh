@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DATA_DIR="${OPENHOST_APP_DATA_DIR:-/workspace}"
+WORKSPACE_DIR="$APP_DATA_DIR/workspace"
+APP_DIR="$WORKSPACE_DIR/learn-from-scratch"
+HOME_DIR="$WORKSPACE_DIR/home"
+SECRETS_URL="${OPENHOST_ROUTER_URL:-}/api/services/v2/call/secrets/get"
+
+mkdir -p "$WORKSPACE_DIR" "$HOME_DIR"
+export HOME="$HOME_DIR"
+
+clone_or_update_payload() {
+    if [ ! -d "$APP_DIR/.git" ]; then
+        rm -rf "$APP_DIR"
+        git clone --branch "$PAYLOAD_REF" "$PAYLOAD_REPO" "$APP_DIR"
+        return
+    fi
+
+    git -C "$APP_DIR" fetch origin "$PAYLOAD_REF"
+    if git -C "$APP_DIR" diff --quiet && git -C "$APP_DIR" diff --cached --quiet; then
+        git -C "$APP_DIR" merge --ff-only "origin/$PAYLOAD_REF" || true
+    else
+        echo "payload checkout has local tracked changes; skipping update"
+    fi
+}
+
+install_dependencies() {
+    cd "$APP_DIR"
+    local stamp="$WORKSPACE_DIR/package-lock.sha256"
+    local current
+    current="$(sha256sum package-lock.json | awk '{print $1}')"
+    if [ ! -d node_modules ] || [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$current" ]; then
+        npm ci
+        echo "$current" > "$stamp"
+    fi
+}
+
+fetch_anthropic_key() {
+    if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+        return
+    fi
+    if [ -z "${OPENHOST_ROUTER_URL:-}" ] || [ -z "${OPENHOST_APP_TOKEN:-}" ]; then
+        echo "OpenHost service env missing; ANTHROPIC_API_KEY not fetched"
+        return
+    fi
+
+    local key
+    key="$(curl -fsS \
+        -H "Authorization: Bearer $OPENHOST_APP_TOKEN" \
+        -H 'Content-Type: application/json' \
+        -d '{"keys":["ANTHROPIC_API_KEY"]}' \
+        "$SECRETS_URL" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin).get("secrets", {}).get("ANTHROPIC_API_KEY", ""))')" || true
+    if [ -n "$key" ]; then
+        export ANTHROPIC_API_KEY="$key"
+    else
+        echo "ANTHROPIC_API_KEY not available from OpenHost secrets"
+    fi
+}
+
+write_shell_profile() {
+    cat > "$HOME/.bashrc" <<EOF
+export HOME="$HOME"
+export IS_SANDBOX=1
+cd "$APP_DIR"
+echo "Learn From Scratch workspace: $APP_DIR"
+echo "Run the bundled skill from Claude Code with: /learn-from-scratch <topic>"
+EOF
+}
+
+clone_or_update_payload
+install_dependencies
+fetch_anthropic_key
+write_shell_profile
+
+cd "$APP_DIR"
+
+npm run dev -- --host 0.0.0.0 --port "$VITE_PORT" &
+vite_pid=$!
+
+ttyd --writable --port "$TTYD_PORT" --base-path /terminal bash --login &
+ttyd_pid=$!
+
+caddy run --config /app/Caddyfile --adapter caddyfile &
+caddy_pid=$!
+
+trap 'kill "$vite_pid" "$ttyd_pid" "$caddy_pid" 2>/dev/null || true' EXIT
+wait -n "$vite_pid" "$ttyd_pid" "$caddy_pid"

@@ -1,0 +1,26 @@
+[app]
+name = "learn-from-scratch"
+version = "0.1.0"
+description = "Learn From Scratch web app plus an authenticated ttyd workspace for running its bundled Claude skill."
+
+[runtime.container]
+image = "Dockerfile"
+port = 8080
+
+[routing]
+health_check = "/health"
+
+[resources]
+memory_mb = 2048
+cpu_cores = 1.0
+
+[data]
+app_data = true
+
+[[services.v2.consumes]]
+service = "github.com/imbue-openhost/openhost/services/secrets"
+shortname = "secrets"
+version = ">=0.1.0"
+grants = [
+    {key = "ANTHROPIC_API_KEY"},
+]

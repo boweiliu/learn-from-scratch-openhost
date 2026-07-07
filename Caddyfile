@@ -1,0 +1,15 @@
+:{$APP_PORT:8080} {
+	encode gzip
+
+	handle /health {
+		respond "ok" 200
+	}
+
+	handle /terminal/* {
+		reverse_proxy 127.0.0.1:{$TTYD_PORT:7681}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:{$VITE_PORT:5173}
+	}
+}
