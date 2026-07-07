@@ -71,6 +71,9 @@ EOF
 
     python3 - <<PY
 import json
+import re
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 claude_json_path = Path("$HOME/.claude.json")
@@ -78,6 +81,21 @@ if claude_json_path.exists():
     data = json.loads(claude_json_path.read_text())
 else:
     data = {}
+
+version_output = subprocess.run(
+    ["claude", "--version"],
+    check=False,
+    capture_output=True,
+    text=True,
+).stdout
+version_match = re.search(r"\d+\.\d+\.\d+", version_output)
+claude_version = version_match.group(0) if version_match else "2.1.202"
+
+data.setdefault("firstStartTime", datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"))
+data["hasCompletedOnboarding"] = True
+data["lastOnboardingVersion"] = claude_version
+data["lastReleaseNotesSeen"] = claude_version
+data["numStartups"] = data.get("numStartups", 0)
 
 projects = data.setdefault("projects", {})
 project = projects.setdefault("$APP_DIR", {})
