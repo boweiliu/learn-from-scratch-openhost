@@ -1,7 +1,7 @@
 [app]
 name = "learn-from-scratch"
 version = "0.1.0"
-description = "Learn From Scratch web app plus an authenticated ttyd workspace for running its bundled Claude skill."
+description = "Learn-from-scratch web app at /app publicly, plus a private ttyd claude workspace at /terminal for running its bundled skill."
 
 [runtime.container]
 image = "Dockerfile"
