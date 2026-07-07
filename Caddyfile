@@ -11,6 +11,16 @@
 		reverse_proxy 127.0.0.1:{$TTYD_PORT:7681}
 	}
 
+	@appRoot path /app
+	handle @appRoot {
+		rewrite * /
+		reverse_proxy 127.0.0.1:{$VITE_PORT:5173}
+	}
+
+	handle_path /app/* {
+		reverse_proxy 127.0.0.1:{$VITE_PORT:5173}
+	}
+
 	handle {
 		reverse_proxy 127.0.0.1:{$VITE_PORT:5173}
 	}
