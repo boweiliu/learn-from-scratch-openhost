@@ -12,9 +12,9 @@ The payload repo is cloned into `OPENHOST_APP_DATA_DIR/workspace/learn-from-scra
 At startup, the wrapper seeds the persistent home under `OPENHOST_APP_DATA_DIR/workspace/home` with Claude Code config:
 
 - `~/.claude/settings.json` sets dark theme and skips the dangerous-mode permission prompt.
-- `~/.claude.json` is updated so the payload checkout is trusted.
+- `~/.claude.json` is updated so the payload checkout is trusted, first-run onboarding is marked complete, and the configured Anthropic API key fingerprint is approved.
 - `~/.bashrc` aliases `claude` to `claude --dangerously-skip-permissions` and enters the payload checkout.
 - `~/.bash_profile` sources `~/.bashrc` for login shells.
-- `~/start-claude.sh` starts Claude with `--dangerously-skip-permissions --continue`, falling back to a fresh `claude --dangerously-skip-permissions` session if continue fails.
+- `~/start-claude.sh` starts Claude with `--dangerously-skip-permissions --continue` when a prior project transcript exists; otherwise it starts a fresh `claude --dangerously-skip-permissions` session.
 
 Note: `ttyd` still appears to spawn one terminal process per browser/websocket connection. Reusing one server-side PTY across reconnects would likely require replacing/wrapping `ttyd` with a custom PTY websocket server.
